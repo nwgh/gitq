@@ -1,0 +1,20 @@
+Add qdiff - Prints current patch + working dir changes to screen
+
+Add qapplied - Prints only the list of currently applied patches in your queue
+    -1 - show only last one
+    -s - show first line of patch header (first line of commit msg)
+
+Add qseries - Prints all patches in queue (applied or not - differentiates)
+    -m - show patches not in series
+    -s - show first line of patch header (first line of commit msg)
+
+Add qpop - Remove top patch from queue (won't work if working dir has changes)
+    -a - remove all
+    -f - trash working dir changes
+
+Add qpush - Add next patch back to queue - This will update base (won't work if
+working dir has changes)
+    -a - add all
+    -f - trasn working dir changes
+
+Add qrebase? - Like rebase, but gitq safe (ie, updates base revs for each patch)

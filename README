@@ -1,0 +1,10 @@
+This is a library that may (or may not) be useful in writing python-based git
+extensions. It is used by git-hg (https://github.com/todesschaf/git-hg), dgit
+(https://github.com/todesschaf/dgit), and maybe some other things that I haven't
+listed here.
+
+The official source distribution for this is https://github.com/todesschaf/pgl
+
+This package requires distutils.
+
+This is released under GPL version 2 ONLY. See the file COPYING for more info.
