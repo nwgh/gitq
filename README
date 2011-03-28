@@ -1,10 +1,9 @@
-This is a library that may (or may not) be useful in writing python-based git
-extensions. It is used by git-hg (https://github.com/todesschaf/git-hg), dgit
-(https://github.com/todesschaf/dgit), and maybe some other things that I haven't
-listed here.
+This attempts to add functionality as close as possible to that of Mercurial's
+MQ extension (http://mercurial.selenic.com/wiki/MqExtension) onto git. It may
+or may not succeed.
 
-The official source distribution for this is https://github.com/todesschaf/pgl
+The official source distribution for this is https://github.com/todesschaf/gitq
 
-This package requires distutils.
+This package requires distutils and pgl (https://github.com/todesschaf/pgl).
 
 This is released under GPL version 2 ONLY. See the file COPYING for more info.
