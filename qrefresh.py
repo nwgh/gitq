@@ -17,6 +17,8 @@ def main():
 
     gitq.include_config()
 
+    gitq.load_series()
+
     if not os.path.exists(pgl.config['QUEUE_SERIES']):
         pgl.die('There is no git queue for branch %s here!' %
             (pgl.config['BRANCH'],))

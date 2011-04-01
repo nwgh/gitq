@@ -80,48 +80,24 @@ def write_series():
                  name))
 
 def update_patch(commit_all=False, commitmsg=None, name=None, email=None):
+    """Makes sure we've committed all our changes, and write the patch series
+    for this uber-patch to its patch directory
     """
-    """
-    patch = pgl.config['SERIES'][pgl.config['ACTIVE_PATCH']]
-    patchno = patch['order']
-    patchbase = patch['base']
-
-    # Find out what the grandparent of our new commit will be, so we can figure
-    # out if we need to sqush the new commit and its parent
-    grp = subprocess.Popen(['git', 'rev-parse', '--verify', 'HEAD~1'],
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    sha = grp.stdout.readlines()[0].strip()
-    grp.wait()
-
-    if sha == patchbase:
-        # The grandparent is the base of our patch, which means we need to
-        # squash the new commit and the previous one. Make a commit message
-        # that will make that nice and easy
-        gl = subprocess.Popen(['git', 'log', '-1', '--format=%%s'],
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        msg = gl.stdout.readlines()[0].strip()
-        gl.wait()
-        commitmsg = 'fixup! %s' % (msg,)
+    patchno = pgl.config['SERIES'][pgl.config['ACTIVE_PATCH']]['order']
 
     # Now we can go through and make our new revision of the patch
     committed = False
     gitstat = subprocess.Popen(['git', 'status', '--porcelain'],
         stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     status = gitstat.stdout.readlines()
-    genv = copy.deepcopy(os.environ)
     if gitstat.wait() == 0 and status:
-        have_staged = any((s[0] != ' ' for s in status))
-        if not have_staged:
-            if not commit_all:
-                pgl.warn('No changes added to patch (use "git add" and/or '
-                    '"git qnew -a")')
-                return False
-            files = [s.strip().split(' ', 1)[-1] for s in status]
-            args = ['git', 'add'] + files
-            gitadd = subprocess.Popen(args, stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE)
-            gitadd.wait()
+        if not any((s[0] != '#' for s in status)):
+            pgl.warn('No changes to add to patch')
+            return False
+        genv = copy.deepcopy(os.environ)
         args = ['git', 'commit']
+        if commit_all:
+            args.append('-a')
         if commitmsg:
             args += ['-m', commitmsg]
         if name:
@@ -132,27 +108,12 @@ def update_patch(commit_all=False, commitmsg=None, name=None, email=None):
         gitcommit.wait()
         committed = True
 
-    if sha == patchbase:
-        # Autosquash our new commit onto our old commit
-        genv['GIT_EDITOR'] = 'true'
-        gri = subprocess.Popen(['git', 'rebase', '-i', '--autosquash', 'HEAD~2'],
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=genv)
-        gri.stdout.read()
-        gri.wait()
-
-    # Write our patch to disk for safety'e sake
-    with file('%04d.patch' % patchno, 'w') as f:
-        if sha == patchbase:
-            gitdiff = subprocess.Popen(['git', 'diff', patchbase, 'HEAD'],
-                stdout=f, stderr=subprocess.PIPE)
-            gitdiff.wait()
-
-    # Write extra metadata to disk if necessary
-    if name or email:
-        with file('%04d.meta' % patchno, 'w') as f:
-            if name:
-                f.write('Name: %s' % (name,))
-            if email:
-                f.write('Email: %s' % (email,))
+    # Write our patches to disk for safety's sake
+    outdir = os.path.join(pgl.config['BRANCH_QUEUE'], '%04d.mbox' % patchno)
+    if not os.path.exists(outdir):
+        os.mkdir(outdir)
+    gfp = subprocess.Popen(['git', 'format-patch', '-o', outdir, '-n',
+        patchbase], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    gfp.wait()
 
     return committed

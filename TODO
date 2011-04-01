@@ -1,3 +1,6 @@
+Use git-format-patch and git-am instead of rebasing all the time - makes pushing
+gitq branches work without breaking people who may have pulled it
+
 Add qdiff - Prints current patch + working dir changes to screen
 
 Add qapplied - Prints only the list of currently applied patches in your queue
