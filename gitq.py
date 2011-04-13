@@ -98,8 +98,9 @@ def update_patch(commit_all=False, commitmsg=None, name=None, email=None):
         args = ['git', 'commit']
         if commit_all:
             args.append('-a')
-        if commitmsg:
-            args += ['-m', commitmsg]
+        if not commitmsg:
+            commitmsg = ''
+        args += ['-m', commitmsg]
         if name:
             genv['GIT_AUTHOR_NAME'] = name
         if email:
