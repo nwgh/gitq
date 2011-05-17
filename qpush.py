@@ -14,7 +14,7 @@ import pgl
 def main():
     ap = argparse.ArgumentParser(description='Apply a popped patch',
         prog='git qpush')
-    ap.add_argument('pname', help='Name of patch', default=None)
+    ap.add_argument('pname', help='Name of patch', default=None, nargs='?')
     ap.add_argument('-i', dest='interactive', help='Choose patch interactively',
         default=False, action='store_true')
     # TODO - handle different username/email

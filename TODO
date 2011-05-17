@@ -4,7 +4,4 @@ Add qcommit - Commits queue changes to specified branch (master by default)
     - Uses git rebase -i --autosquash
     - GIT_EDITOR=true in environment
 
-Add qpatch - Like format-patch, but for queue patches (ie, squashes commits)
-    - Have a "--hg" option to make hg-style patches
-
 Add qrebase? - Like rebase, but gitq safe (ie, updates base revs for each patch)
