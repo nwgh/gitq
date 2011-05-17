@@ -31,19 +31,23 @@ def hgify(f):
 
 @pgl.main
 def main():
-    ap = argparse.ArgumentParser(description='Make patches for the current queue',
-        prog='git qpatch')
+    ap = argparse.ArgumentParser(
+        description='Make patches for the current queue', prog='git qpatch')
     ap.add_argument('--hg', dest='hg', help='Make an HG-style patch',
         action='store_true', default=False)
     ap.add_argument('-o', dest='outdir', help='Directory to write patches to',
         default='.')
-    ap.add_argument('base', help='Branch to base on', nargs='?',
-        default='master')
+    ap.add_argument('--nocleanup', dest='nocleanup',
+        help='Do not reset to QPATCH_HEAD after creating patches',
+        default=False, action='store_true')
     args = ap.parse_args()
 
     if gitq.repo_has_changes():
         pgl.die('Working copy has uncommitted changes. Either stash or commit '
                 'them to continue')
+
+    gitq.include_config()
+    gitq.load_series()
 
     # Figure out our current HEAD so we can reset to it
     grp = subprocess.Popen(['git', 'rev-parse', '--verify', 'HEAD'],
@@ -55,37 +59,13 @@ def main():
     if not orig_head:
         pgl.die('Could not figure out HEAD sha')
 
-    # Figure out the branch name corresponding to our current HEAD
-    gb = subprocess.Popen(['git', 'branch', '--no-color', '--contains',
-                           orig_head],
+    # Set up a symbolic ref so we can get back to where we were
+    gsr = subprocess.Popen(['git', 'symbolic-ref', 'QPATCH_HEAD', orig_head],
         stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    lines = gb.stdout.readlines()
-    if gb.wait() or not lines[0].strip():
-        pgl.die('Could not figure out current branch')
-    orig_branch = lines[0].strip().split()[-1]
+    gsr.wait()
 
-    # Figure out where to apply our patches
-    gmb = subprocess.Popen(['git', 'merge-base', args.base, orig_head],
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    lines = gmb.stdout.readlines()
-    if gmb.wait():
-        pgl.die('Could not figure out merge-base for %s and HEAD' % (args.base,))
-    base = lines[0].strip()
-    if not base:
-        pgl.die('Could not figure out base to make patches from')
-
-    # Move to our detatched head
-    gc = subprocess.Popen(['git', 'checkout', base], stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE)
-    if gc.wait():
-        pgl.die('Error creating patches: noco')
-
-    # Apply the patches
-    gcp = subprocess.Popen(['git', 'cherry-pick', '..%s' % (orig_branch,)],
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    gcp.wait()
-
-    # Squash them down
+    # Squash down our patches into a sane set of patches
+    base = '%s~1' % (pgl.config['SERIES'][0],)
     grenv = copy.deepcopy(os.environ)
     grenv['GIT_EDITOR'] = 'true'
     gr = subprocess.Popen(['git', 'rebase', '-i', '--autosquash', base],
@@ -120,9 +100,10 @@ def main():
             os.unlink(fname)
             os.rename(fname_out, fname)
 
-    # Finally, go back to our original branch
-    gc = subprocess.Popen(['git', 'checkout', orig_branch],
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    gc.wait()
+    if not args.nocleanup:
+        # Finally, go back to our original state
+        gc = subprocess.Popen(['git', 'reset', '--hard', orig_head],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        gc.wait()
 
     return 0
