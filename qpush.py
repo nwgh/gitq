@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+import argparse
+import glob
 import os
 import shutil
 import subprocess
@@ -10,6 +12,14 @@ import pgl
 
 @pgl.main
 def main():
+    ap = argparse.ArgumentParser(description='Apply a popped patch',
+        prog='git qpush')
+    ap.add_argument('pname', help='Name of patch', default=None)
+    ap.add_argument('-i', dest='interactive', help='Choose patch interactively',
+        default=False, action='store_true')
+    # TODO - handle different username/email
+    args = ap.parse_args()
+
     # Make sure we have all the config we need
     gitq.include_config()
 
@@ -38,16 +48,33 @@ def main():
                     apply_name = pgl.config['NAMES'][apply_sha]
             except ValueError:
                 pass
+    elif args.pname:
+        if args.pname not in pgl.config['SHAS']:
+            pgl.die('Unknown patch: %s' % (args.pname,))
+        apply_name = args.pname
+        apply_sha = pgl.config['SHAS'][args.pname]
     else:
         apply_sha = pgl.config['UNAPPLIED'][-1]
         apply_name = pgl.config['NAMES'][apply_sha]
 
     # Re-apply the patch using git am
     patchdir = os.path.join(pgl.config['BRANCH_QUEUE'], apply_sha)
-    gitam = subprocess.Popen(['git', 'am', patchdir], stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE)
-    if gitam.wait():
-        pgl.die('Failed to apply patches!')
+    if not os.path.exists(patchdir):
+        pgl.die('Missing patch directory for %s. Oops!' % (apply_name,))
+
+    patches = glob.glob(os.path.join(patchdir, '*.patch'))
+    if not patches:
+        pgl.die('Missing patches for %s. Oops!' % (apply_name,))
+
+    for patch in patches:
+        gitam = subprocess.Popen(['git', 'am', patch], stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE)
+        if gitam.wait():
+            gitreset = subprocess.Popen(['git', 'reset', '--hard',
+                                         pgl.config['HEAD_SHA']],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            gitreset.wait()
+            pgl.die('Failed to apply patches!')
 
     # Remove saved patches directory
     shutil.rmtree(patchdir)

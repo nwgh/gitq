@@ -58,7 +58,8 @@ def load_series():
             base = line.strip()
             pgl.config['SERIES'].append(base)
 
-    pgl.config['ACTIVE_PATCH'] = pgl.config['SERIES'][-1]
+    if pgl.config['SERIES']:
+        pgl.config['ACTIVE_PATCH'] = pgl.config['SERIES'][-1]
 
     with file(pgl.config['UNAPPLIED_PATCHES']) as f:
         for line in f:
@@ -96,15 +97,19 @@ def repo_has_changes():
             return True
     return False
 
-def update_patch(commit_all=False, commitmsg=None, name=None, email=None):
+def update_patch(commit_all=False, commitmsg=None, new=False, name=None, email=None):
     """Makes sure we've committed all our changes, and write the patch series
     for this uber-patch to its patch directory
     """
-    patchbase = pgl.config['ACTIVE_PATCH']
+    if not new:
+        patchbase = pgl.config['ACTIVE_PATCH']
+    else:
+        patchbase = None
 
     # Now we can go through and make our new revision of the patch
     if patchbase and not commitmsg:
-        gitlog = subprocess.Popen(['git', 'log', '-1', '--format=%%s'],
+        gitlog = subprocess.Popen(['git', 'log', '-1', '--format=%s',
+                                   patchbase],
             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         origmsg = gitlog.stdout.readlines()[0].strip()
         commitmsg = 'fixup! %s' % (origmsg,)
@@ -126,6 +131,7 @@ def update_patch(commit_all=False, commitmsg=None, name=None, email=None):
     if email:
         genv['GIT_AUTHOR_EMAIL'] = email
     gitcommit = subprocess.Popen(args, env=genv)
-    gitcommit.wait()
+    if gitcommit.wait():
+        return False
 
     return True

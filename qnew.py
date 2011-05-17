@@ -26,15 +26,20 @@ def main():
     if not os.path.exists(pgl.config['QUEUE_SERIES']):
         if not os.path.exists(pgl.config['BRANCH_QUEUE']):
             if not os.path.exists(pgl.config['QUEUES']):
-                os.path.mkdir(pgl.config['QUEUES'])
-            os.path.mkdir(pgl.config['BRANCH_QUEUE'])
+                os.mkdir(pgl.config['QUEUES'])
+            os.mkdir(pgl.config['BRANCH_QUEUE'])
         file(pgl.config['QUEUE_SERIES'], 'w').close()
+    if not os.path.exists(pgl.config['UNAPPLIED_PATCHES']):
+        file(pgl.config['UNAPPLIED_PATCHES'], 'w').close()
+    if not os.path.exists(pgl.config['SHA_NAME_MAP']):
+        file(pgl.config['SHA_NAME_MAP'], 'w').close()
 
     # Make sure we don't already have a patch named like the one we want
     gitq.load_series()
 
     # Commit outstanding changes
-    if not gitq.update_patch(commit_all=args.all, commitmsg=args.commitmsg):
+    if not gitq.update_patch(commit_all=args.all, commitmsg=args.commitmsg,
+                             new=True):
         pgl.die('Nothing to make a new patch from!')
 
     # Do this again here to figure out the base of our new patch

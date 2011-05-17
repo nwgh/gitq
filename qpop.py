@@ -32,13 +32,15 @@ def main():
                             '%s~1' % (patchbase,)],
         stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if gfp.wait():
-        pgl.die('Failed to pop patch')
+        pgl.die('Failed to save patch')
 
     # Reset our working copy to before the patch
     reset_point = '%s~1' % (patchbase,)
     gitreset = subprocess.Popen(['git', 'reset', '--hard', reset_point],
         stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    gitreset.wait()
+    if gitreset.wait():
+        shutil.rmtree(patchdir)
+        pgl.die('Failed to pop patch')
 
     # Move our now-saved patch into the unapplied list and save new state
     pgl.config['SERIES'] = pgl.config['SERIES'][:-1]
