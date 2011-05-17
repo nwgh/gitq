@@ -1,7 +1,1 @@
-Add qcommit - Commits queue changes to specified branch (master by default)
-    - Uses git checkput ontobranch
-    - Uses git cherry-pick ..patchbranch
-    - Uses git rebase -i --autosquash
-    - GIT_EDITOR=true in environment
-
 Add qrebase? - Like rebase, but gitq safe (ie, updates base revs for each patch)

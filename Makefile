@@ -15,3 +15,4 @@ install: all
 	install -m 0755 -o ${OWNER} qpop.py ${BINDIR}/git-qpop
 	install -m 0755 -o ${OWNER} qdiff.py ${BINDIR}/git-qdiff
 	install -m 0755 -o ${OWNER} qpatch.py ${BINDIR}/git-qpatch
+	install -m 0755 -o ${OWNER} qcommit.py ${BINDIR}/git-qcommit
