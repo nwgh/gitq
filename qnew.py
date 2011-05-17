@@ -2,6 +2,7 @@
 
 import argparse
 import os
+import sys
 
 import gitq
 import pgl
@@ -29,29 +30,25 @@ def main():
             os.path.mkdir(pgl.config['BRANCH_QUEUE'])
         file(pgl.config['QUEUE_SERIES'], 'w').close()
 
-    # Update the series metadata on disk, marking our current patch as active
+    # Make sure we don't already have a patch named like the one we want
     gitq.load_series()
 
-    if args.pname in pgl.config['SERIES']:
-        pgl.die('You already have a patch named %s on the current branch!' %
-            (args.pname,))
+    # Commit outstanding changes
+    if not gitq.update_patch(commit_all=args.all, commitmsg=args.commitmsg):
+        pgl.die('Nothing to make a new patch from!')
 
-    if pgl.config['ACTIVE_PATCH']:
-        pgl.config['SERIES'][pgl.config['ACTIVE_PATCH']]['active'] = False
-    pgl.config['SERIES_ORDER'].append(args.pname)
-    patchno = len(pgl.config['SERIES_ORDER']) - 1
-    pgl.config['ACTIVE_PATCH'] = args.pname
-    pgl.config['SERIES'][args.pname] = {'base':pgl.config['HEAD_SHA'],
-                                        'order':patchno,
-                                        'active':True}
-    curpatch = pgl.config['SERIES'][args.pname]
+    # Do this again here to figure out the base of our new patch
+    gitq.include_config()
+    patchbase = pgl.config['HEAD_SHA']
 
+    # Update our stored idea of the patch series on disk
+    pgl.config['SERIES'].append(patchbase)
+    pgl.config['ACTIVE_PATCH'] = patchbase
+    pgl.config['NAMES'][patchbase] = args.pname
     gitq.write_series()
 
-    # Commit outstanding changes
-    gitq.update_patch(commit_all=args.all, commitmsg=args.commitmsg)
-
     # Done!
-    sys.stdout.write('Started new patch %s on branch %s\n' %
-        (args.pname, pgl.config['BRANCH']))
-    sys.exit(0)
+    sys.stdout.write('Started new patch on branch %s\n' %
+        (pgl.config['BRANCH'],))
+
+    return 0

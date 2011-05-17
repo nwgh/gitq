@@ -39,82 +39,93 @@ def include_config():
         sanitized_branch)
     pgl.config['QUEUE_SERIES'] = os.path.join(pgl.config['BRANCH_QUEUE'],
         'series')
+    pgl.config['UNAPPLIED_PATCHES'] = os.path.join(pgl.config['BRANCH_QUEUE'],
+        'unapplied')
+    pgl.config['SHA_NAME_MAP'] = os.path.join(pgl.config['BRANCH_QUEUE'],
+        'shaname')
 
 def load_series():
     """Read queue series info from the metadata file
     """
     pgl.config['ACTIVE_PATCH'] = None
-    pgl.config['SERIES'] = {}
-    pgl.config['SERIES_ORDER'] = []
-    active_found = False
+    pgl.config['SERIES'] = []
+    pgl.config['UNAPPLIED'] = []
+    pgl.config['NAMES'] = {}
+    pgl.config['SHAS'] = {}
 
     with file(pgl.config['QUEUE_SERIES']) as f:
-        for i, line in enumerate(f):
-            aflag, base, name = line.split(' ', 2)
-            pgl.config['SERIES_ORDER'].append(name)
-            pgl.config['SERIES'][name] = {'base':base,
-                                          'order':i,
-                                          'active':False}
-            if aflag == '+':
-                if active_found:
-                    pgl.warn('WARNING! The patch queue is malformed (2+)')
-                pgl.config['ACTIVE_PATCH'] = name
-                pgl.config['SERIES'][name]['active'] = True
-                active_found = True
+        for line in f:
+            base = line.strip()
+            pgl.config['SERIES'].append(base)
 
-    if pgl.config['SERIES'] and not pgl.config['ACTIVE_PATCH']:
-        pgl.warn('WARNING! The patch queue is malformed (0+)')
+    pgl.config['ACTIVE_PATCH'] = pgl.config['SERIES'][-1]
+
+    with file(pgl.config['UNAPPLIED_PATCHES']) as f:
+        for line in f:
+            pgl.config['UNAPPLIED'].append(line.strip())
+
+    with file(pgl.config['SHA_NAME_MAP']) as f:
+        for line in f:
+            sha, name = line.strip().split(' ', 1)
+            pgl.config['NAMES'][sha] = name
+            pgl.config['SHAS'][name] = sha
 
 def write_series():
     """Write queue series info to the metadata file
     """
-    with file(pgl.config['QUEUE_SERIES']) as f:
-        for name in pgl.config['SERIES_ORDER']:
-            if pgl.config['ACTIVE_PATCH'] == name:
-                aflag = '+'
-            else:
-                aflag = '-'
-            f.write('%s %s %s' %
-                ('+' if pgl.config['SERIES'][name]['active'] else '-',
-                 pgl.config['SERIES'][name]['base'],
-                 name))
+    with file(pgl.config['QUEUE_SERIES'], 'w') as f:
+        for base in pgl.config['SERIES']:
+            f.write('%s\n' % (base,))
+
+    with file(pgl.config['UNAPPLIED_PATCHES'], 'w') as f:
+        for base in pgl.config['UNAPPLIED']:
+            f.write('%s\n' % (base,))
+
+    with file(pgl.config['SHA_NAME_MAP'], 'w') as f:
+        for sha, name in pgl.config['NAMES'].iteritems():
+            f.write('%s %s\n' % (sha, name))
+
+def repo_has_changes():
+    """Return True if the working copy has uncommitted changes, False otherwise
+    """
+    gitstat = subprocess.Popen(['git', 'status', '--porcelain'],
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    status = gitstat.stdout.readlines()
+    if gitstat.wait() == 0 and status:
+        if any((s[0] != '#' for s in status)):
+            return True
+    return False
 
 def update_patch(commit_all=False, commitmsg=None, name=None, email=None):
     """Makes sure we've committed all our changes, and write the patch series
     for this uber-patch to its patch directory
     """
-    patchno = pgl.config['SERIES'][pgl.config['ACTIVE_PATCH']]['order']
+    patchbase = pgl.config['ACTIVE_PATCH']
 
     # Now we can go through and make our new revision of the patch
-    committed = False
-    gitstat = subprocess.Popen(['git', 'status', '--porcelain'],
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    status = gitstat.stdout.readlines()
-    if gitstat.wait() == 0 and status:
-        if not any((s[0] != '#' for s in status)):
-            pgl.warn('No changes to add to patch')
-            return False
-        genv = copy.deepcopy(os.environ)
-        args = ['git', 'commit']
-        if commit_all:
-            args.append('-a')
-        if not commitmsg:
-            commitmsg = ''
+    if patchbase and not commitmsg:
+        gitlog = subprocess.Popen(['git', 'log', '-1', '--format=%%s'],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        origmsg = gitlog.stdout.readlines()[0].strip()
+        commitmsg = 'fixup! %s' % (origmsg,)
+        gitlog.wait()
+
+    # Can't use repo_has_changes, since that's not quite what we're looking for
+    if not repo_has_changes():
+        pgl.warn('No changes to add to patch')
+        return False
+
+    genv = copy.deepcopy(os.environ)
+    args = ['git', 'commit']
+    if commit_all:
+        args.append('-a')
+    if commitmsg:
         args += ['-m', commitmsg]
-        if name:
-            genv['GIT_AUTHOR_NAME'] = name
-        if email:
-            genv['GIT_AUTHOR_EMAIL'] = email
-        gitcommit = subprocess.Popen(args, env=genv)
-        gitcommit.wait()
-        committed = True
+    if name:
+        genv['GIT_AUTHOR_NAME'] = name
+    if email:
+        genv['GIT_AUTHOR_EMAIL'] = email
+    gitcommit = subprocess.Popen(args, env=genv)
+    gitcommit.wait()
 
-    # Write our patches to disk for safety's sake
-    outdir = os.path.join(pgl.config['BRANCH_QUEUE'], '%04d.mbox' % patchno)
-    if not os.path.exists(outdir):
-        os.mkdir(outdir)
-    gfp = subprocess.Popen(['git', 'format-patch', '-o', outdir, '-n',
-        patchbase], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    gfp.wait()
-
-    return committed
+    return True

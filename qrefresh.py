@@ -26,4 +26,4 @@ def main():
     if not gitq.update_patch(commit_all=args.all):
         pgl.die('There was nothing to update the patch with!')
 
-    sys.exit(0)
+    return 0
