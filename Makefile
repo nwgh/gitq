@@ -13,3 +13,4 @@ install: all
 	install -m 0755 -o ${OWNER} qrefresh.py ${BINDIR}/git-qrefresh
 	install -m 0755 -o ${OWNER} qpush.py ${BINDIR}/git-qpush
 	install -m 0755 -o ${OWNER} qpop.py ${BINDIR}/git-qpop
+	install -m 0755 -o ${OWNER} qdiff.py ${BINDIR}/git-qdiff
